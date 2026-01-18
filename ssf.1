@@ -1,0 +1,63 @@
+.Dd 2025-12-31
+.Dt SSF 1
+.Os
+.Sh NAME
+.Nm ssf
+.Nd simple system fetcher
+.Sh SYNOPSIS
+.Nm
+.Op Fl m
+.Op Fl s
+.Op Fl k Ar key
+.Op Fl h
+.Op Fl v
+.Sh DESCRIPTION
+.Nm
+prints a small set of system facts next to a colored ASCII logo.
+It uses plain POSIX interfaces and supports Linux and OpenBSD.
+Output includes ANSI color escape sequences.
+.Sh OPTIONS
+.Bl -tag -width Ds
+.It Fl m
+Use a pipe separator ("|") between field names and values for easier parsing.
+.It Fl s
+Show a short subset of fields: hostname, kernel, uptime, memory.
+.It Fl k Ar key
+Print only the value for the named field and exit.
+Known keys are:
+user, hostname, distro, kernel, uptime, shell, terminal, cpu, memory, load.
+If the key is unknown, nothing is printed.
+.It Fl h
+Show usage help and exit.
+.It Fl v
+Print the version string and exit.
+.El
+.Sh ENVIRONMENT
+.Bl -tag -width Ds
+.It Ev SHELL
+Used to derive the shell name.
+.It Ev TERM
+Used to display the terminal type.
+.El
+.Sh FILES
+.Bl -tag -width Ds
+.It Pa /etc/os-release
+Distribution name (PRETTY_NAME).
+.It Pa /etc/issue
+Fallback distribution name.
+.It Pa /proc/cpuinfo
+CPU model and core count (Linux).
+.It Pa /proc/meminfo
+Memory totals (Linux).
+.El
+.Sh NOTES
+On OpenBSD, CPU and memory are read via
+.Xr sysctl 3 .
+If a value cannot be determined, it is printed as "unknown".
+The ASCII logo is selected by substring match on the distro name;
+if no match is found, a generic Linux logo is used.
+.Sh SEE ALSO
+.Xr uname 1 ,
+.Xr sysctl 3
+.Sh AUTHORS
+Sebastian Michalk <sebastian.michalk@pm.me>
