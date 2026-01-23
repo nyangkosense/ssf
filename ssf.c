@@ -13,6 +13,10 @@
 #include <sys/utsname.h>
 #include <time.h>
 #include <unistd.h>
+#include <ifaddrs.h>
+#include <netinet/in.h>
+#include <sys/socket.h>
+#include <arpa/inet.h>
 
 #ifdef __OpenBSD__
 #include <getopt.h>
@@ -63,6 +67,7 @@ struct Info
   char hostname[MAXLINE], kernel[MAXLINE], uptime[MAXLINE];
   char cpu[MAXLINE], memory[MAXLINE], load[MAXLINE];
   char distro[MAXLINE], shell[MAXLINE], terminal[MAXLINE], user[MAXLINE];
+  char ip[16];
 };
 
 struct AsciiEntry
@@ -79,6 +84,7 @@ static void kernel (struct Info *);
 static void uptime (struct Info *);
 static void cpu (struct Info *);
 static void memory (struct Info *);
+static void ip (struct Info *);
 static void load (struct Info *);
 static void distro (struct Info *);
 static void shell (struct Info *);
@@ -166,6 +172,32 @@ usage (void)
 }
 
 static void
+ip (struct Info *i)
+{
+  struct ifaddrs *ifap, *ifa;
+
+  if (getifaddrs (&ifap) < 0) {
+    strcpy (i->ip, "0.0.0.0");
+    return;
+  }
+  for (ifa = ifap; ifa != NULL; ifa = ifa->ifa_next) {
+    if (!ifa->ifa_addr || ifa->ifa_addr->sa_family != AF_INET)
+      continue;
+
+    if (strcmp (ifa->ifa_name, "lo0") == 0
+	|| strcmp (ifa->ifa_name, "lo") == 0)
+      continue;
+    struct sockaddr_in *sa = (struct sockaddr_in *) ifa->ifa_addr;
+    inet_ntop (AF_INET, &sa->sin_addr, i->ip, sizeof (i->ip));
+    break;
+  }
+  freeifaddrs (ifap);
+  if (!i->ip[0])
+    strcpy (i->ip, "0.0.0.0");
+
+}
+
+static void
 hostname (struct Info *i)
 {
   if (gethostname (i->hostname, sizeof (i->hostname)) < 0)
@@ -240,7 +272,6 @@ cpu (struct Info *i)
     UNKNOWN (i->cpu);
     return;
   }
-
   while (fgets (buf, sizeof (buf), f))
     if (!strncmp (buf, "model name", 10)) {
       if ((buf[strcspn (buf, "\n")] = 0, strchr (buf, ':')))
@@ -287,7 +318,6 @@ memory (struct Info *i)
     UNKNOWN (i->memory);
     return;
   }
-
   while (fgets (buf, sizeof (buf), f) && (!total || !avail))
     if (!strncmp (buf, "MemTotal:", 9))
       sscanf (buf, "MemTotal: %ld", &total);
@@ -443,6 +473,7 @@ collect (struct Info *i)
   shell (i);
   terminal (i);
   user (i);
+  ip (i);
 }
 
 static void
@@ -453,12 +484,15 @@ display (struct Info *i, int m, int s, char *k)
   {
     char *name, *val;
   } fields[] = {
-    {"user", i->user}, {"hostname", i->hostname}, {"distro", i->distro},
-    {"kernel", i->kernel}, {"uptime", i->uptime}, {"shell", i->shell},
-    {"terminal", i->terminal}, {"cpu", i->cpu}, {"memory", i->memory},
-    {"load", i->load}
+    {"user", i->user}, {"hostname", i->hostname}, 
+	{"ip", i->ip}, {"distro", i->distro},
+    {"kernel", i->kernel}, {"uptime", i->uptime}, 
+	{"shell", i->shell},
+    {"terminal", i->terminal}, {"cpu", i->cpu}, 
+	{"memory", i->memory},{"load", i->load},
   }, short_fields[] = {
-    {"hostname", i->hostname}, {"kernel", i->kernel}, {"uptime", i->uptime},
+    {"hostname", i->hostname}, {"kernel", i->kernel}, 
+	{"uptime", i->uptime},
     {"memory", i->memory}
   };
   const char **ascii;
@@ -477,7 +511,6 @@ display (struct Info *i, int m, int s, char *k)
       }
     return;
   }
-
   ascii = asciisel (i->distro, &color);
   ascii_lines = 0;
   ascii_width = 0;
@@ -489,7 +522,6 @@ display (struct Info *i, int m, int s, char *k)
     }
     ascii_lines = j;
   }
-
   n = s ? short_total : total;
   max_lines = MAXIMUM (ascii_lines, n);
   for (j = 0; j < max_lines; j++) {
